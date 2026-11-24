@@ -127,6 +127,8 @@ Admin access:    OCI Bastion service ──► private targets (no public SSH)
 
 ✅ **Verify:** VCN state is **Available**, CIDR is `10.0.0.0/16`, DNS domain shows `shopsphere.oraclevcn.com`.
 
+<img width="1911" height="755" alt="image" src="https://github.com/user-attachments/assets/54dface7-9ab1-4b83-9d65-0437e574faf0" />
+
 ---
 
 ## 4. Create the Internet Gateway
