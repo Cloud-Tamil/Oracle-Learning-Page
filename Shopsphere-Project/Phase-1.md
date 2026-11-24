@@ -107,6 +107,7 @@ Copy each OCID into your notes file (`SHOPSPHERE_NETWORK_COMPARTMENT_OCID`, and 
 > Compartment deletion is slow and needs an empty compartment, so double-check names before creating.
 
 ✅ **Verify:** Compartments page shows `Shopsphere` with five **Active** children.
+<img width="1902" height="798" alt="image" src="https://github.com/user-attachments/assets/3e5ef275-e896-4a91-9d06-47dffa4bbae6" />
 
 ---
 
