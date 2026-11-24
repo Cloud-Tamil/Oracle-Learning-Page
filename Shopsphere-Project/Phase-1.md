@@ -97,9 +97,7 @@ export SHOPSPHERE_COMPARTMENT_OCID="<paste-ocid-here>"
 Example administrator policy:
 
 ```text
-Allow group shopsphere-admins
-  to manage all-resources
-  in compartment Shopsphere
+Allow group shopsphere-admins to manage all-resources in compartment Shopsphere
 ```
 
 **Why:** Least privilege. `manage all-resources` in the compartment is powerful, so only trusted admins should get it. Developers should get narrower statements (e.g., `manage instances`, `manage object-family`, `use virtual-network-family`).
