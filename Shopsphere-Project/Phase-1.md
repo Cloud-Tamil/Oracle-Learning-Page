@@ -87,6 +87,7 @@ IAM, tags and budgets are **home-region** resources. Make sure the region select
 5. Wait for **Active**, open it, and copy the OCID as `SHOPSPHERE_COMPARTMENT_OCID`.
    
 <img width="1914" height="757" alt="image" src="https://github.com/user-attachments/assets/ea9aecb3-3a19-4c00-a396-70eb59a0eeba" />
+
 ---
 
 ### 3.2 Create the five child compartments
@@ -108,6 +109,7 @@ Copy each OCID into your notes file (`SHOPSPHERE_NETWORK_COMPARTMENT_OCID`, and 
 ✅ **Verify:** Compartments page shows `Shopsphere` with five **Active** children.
 
 <img width="1910" height="757" alt="image" src="https://github.com/user-attachments/assets/db662093-de37-48e8-aa51-ecfada900b1b" />
+
 ---
 
 ## 4. Create IAM Groups
@@ -128,6 +130,8 @@ Menu → **Identity & Security** → **Domains**. Note whether you use the **Def
 | `shopsphere-developers` | Build and deploy workloads |
 | `shopsphere-dba` | Databases and backups |
 | `shopsphere-readonly` | View only |
+
+<img width="1909" height="757" alt="image" src="https://github.com/user-attachments/assets/76136a95-d626-46f0-b401-14b6af20a88d" />
 
 ### 4.3 Add yourself to the admins group
 
@@ -178,6 +182,8 @@ Allow group shopsphere-readonly to read all-resources in compartment Shopsphere
 > OCI IAM is **deny by default** and has no explicit deny. Never grant `manage all-resources` outside the admin group.
 
 ✅ **Verify:** The policy shows **Active** with all statements and no syntax warnings.
+
+<img width="1915" height="753" alt="image" src="https://github.com/user-attachments/assets/84f5577c-f290-4b8d-a981-99698a0ac7a7" />
 
 ---
 
