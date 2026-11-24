@@ -211,6 +211,8 @@ Allow dynamic-group shopsphere-app-instances to read secret-bundles in compartme
 
 ✅ **Verify:** The dynamic group exists and the rule shows your app compartment OCID.
 
+<img width="1912" height="755" alt="image" src="https://github.com/user-attachments/assets/b64db5f5-e26c-49a2-be4a-da561e47edcd" />
+
 ---
 
 ## 7. Enable and Enforce MFA
@@ -368,6 +370,8 @@ Open the `shopsphere` namespace → **Create tag key definition** for each:
    - **Budget amount:** for example `50` (or your currency equivalent)
 3. Click **Next**.
 
+<img width="1913" height="754" alt="image" src="https://github.com/user-attachments/assets/3ac14dd7-8b75-455a-bc3a-c89521650edd" />
+
 ### 10.2 Alert rules
 
 Create four rules, each with your email as recipient:
@@ -393,6 +397,8 @@ Click **Create**.
 > ⚠️ Cost data can lag by hours up to a day, so a runaway resource can spend a lot before the first alert arrives.
 
 ✅ **Verify:** The budget lists four alert rules and the target shows `Shopsphere`.
+
+<img width="1907" height="752" alt="image" src="https://github.com/user-attachments/assets/0be39ec6-e67e-4fe5-a881-871088d66af0" />
 
 ---
 
