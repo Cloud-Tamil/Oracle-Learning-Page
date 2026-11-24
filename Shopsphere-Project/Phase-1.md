@@ -19,11 +19,8 @@ The advanced Phase 1 for **ShopSphere**, done **entirely by hand** through the O
 9. [Create Tags](#9-create-tags)
 10. [Create the Budget and Alerts](#10-create-the-budget-and-alerts)
 11. [Security Baseline: Audit, Cloud Guard, Notifications](#11-security-baseline-audit-cloud-guard-notifications)
-12. [Create the Project Directory and Git Safety](#12-create-the-project-directory-and-git-safety)
-13. [Terraform Authentication and Remote State](#13-terraform-authentication-and-remote-state)
-14. [Manual Validation Checklist](#14-manual-validation-checklist)
-15. [Troubleshooting](#15-troubleshooting)
-16. [Pitfalls and Hardening Checklist](#16-pitfalls-and-hardening-checklist)
+12. [Troubleshooting](#15-troubleshooting)
+13. [Pitfalls and Hardening Checklist](#16-pitfalls-and-hardening-checklist)
 
 ---
 
@@ -424,10 +421,7 @@ Default retention is 365 days.
 | Bastion service instead of public SSH | Network phase |
 | Logging and VCN flow logs | Observability phase |
 
-✅ **Verify:** Audit shows your events, Cloud Guard is **Enabled**, and the subscription status is **Confirmed**.
-
----
-### 14.2 Console checks
+### 11.5 Console checks
 
 | # | Check | Done |
 |---|---|---|
@@ -442,9 +436,12 @@ Default retention is 365 days.
 | 9 | Budget with four alert rules | ☐ |
 | 10 | Audit shows events; Cloud Guard enabled | ☐ |
 | 11 | Notification subscription **Confirmed** | ☐ |
+
+✅ **Verify:** Audit shows your events, Cloud Guard is **Enabled**, and the subscription status is **Confirmed**.
+
 ---
 
-## 15. Troubleshooting
+## 12. Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -456,7 +453,7 @@ Default retention is 365 days.
 
 ---
 
-## 16. Pitfalls and Hardening Checklist
+## 13. Pitfalls and Hardening Checklist
 
 ### Pitfalls
 
