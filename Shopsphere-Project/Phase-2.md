@@ -148,6 +148,8 @@ Admin access:    OCI Bastion service ──► private targets (no public SSH)
 
 ✅ **Verify:** Gateway state is **Available** and **Enabled**.
 
+<img width="1913" height="754" alt="image" src="https://github.com/user-attachments/assets/f8505c3d-890f-4a1a-8d5f-363966b1df50" />
+
 ---
 
 ## 5. Create the NAT Gateway
@@ -167,6 +169,8 @@ Admin access:    OCI Bastion service ──► private targets (no public SSH)
 
 ✅ **Verify:** State is **Available**, and a public IP is shown.
 
+<img width="1913" height="753" alt="image" src="https://github.com/user-attachments/assets/e321d1f6-8c86-459a-b7d1-ba473540603c" />
+
 ---
 
 ## 6. Create the Service Gateway
@@ -185,6 +189,8 @@ Admin access:    OCI Bastion service ──► private targets (no public SSH)
 > Choose **All services**, not the Object-Storage-only option. OKE worker nodes and nodes pulling from OCI Registry need more than Object Storage. You can only attach one OSN service CIDR label per gateway, so the "All services" option avoids having to redo it.
 
 ✅ **Verify:** State is **Available** and the service shows **All `<region>` Services In Oracle Services Network**.
+
+<img width="1914" height="759" alt="image" src="https://github.com/user-attachments/assets/660c8038-2b52-45bf-a21c-2d1de40cda37" />
 
 ---
 
@@ -223,6 +229,8 @@ A route table matches destination CIDRs to a **target**. Create two and **associ
 
 ✅ **Verify:** `shopsphere-public-rt` has 1 rule and `shopsphere-private-rt` has 2 rules, and no rule points at a gateway that does not exist.
 
+<img width="1916" height="755" alt="image" src="https://github.com/user-attachments/assets/7af369cb-bf76-4511-a4ee-75453ec3736c" />
+
 ---
 
 ## 8. Create Locked-Down Security Lists
@@ -252,6 +260,8 @@ Subnets get a security list by default, and the **default** list allows inbound 
 > **How rules combine:** For a resource, OCI evaluates the **union** of the subnet's security lists **and** the NSGs on its VNIC. Traffic is allowed if **any** rule allows it. Keeping security lists nearly empty means the NSGs are the only meaningful policy. Do not attach the default list.
 
 ✅ **Verify:** Both lists exist with exactly one ingress rule each and nothing that opens 22 or 3306.
+
+<img width="1911" height="753" alt="image" src="https://github.com/user-attachments/assets/72351af4-cdda-4ebc-a2a9-72688faf2414" />
 
 ---
 
@@ -304,6 +314,8 @@ For each one:
 
 ✅ **Verify:** Five subnets, all **Available**, only `shopsphere-lb-subnet` shows **Public**.
 
+<img width="1912" height="757" alt="image" src="https://github.com/user-attachments/assets/8c805e15-b70c-43f2-8715-9f360c0a6e72" />
+
 ---
 
 ## 10. Create the NSGs
@@ -326,6 +338,8 @@ NSGs are virtual firewalls attached to **VNICs**, so you can write rules between
 NSGs do nothing until you add rules **and** attach them to resources in later phases.
 
 ✅ **Verify:** Five NSGs exist, each with 0 rules for now.
+
+<img width="1908" height="756" alt="image" src="https://github.com/user-attachments/assets/7904b5b2-e276-436a-9684-131d13c1637c" />
 
 ---
 
@@ -353,6 +367,8 @@ Using **NSG as source/destination** means `Source type = Network security group`
 | Egress | NSG `shopsphere-oke-worker-nsg` | TCP | 30000-32767 | Kubernetes NodePort range |
 | Egress | NSG `shopsphere-oke-worker-nsg` | TCP | 10256 | kube-proxy health check |
 
+<img width="1912" height="754" alt="image" src="https://github.com/user-attachments/assets/1807e087-0cf2-4d93-b863-3dbba06ae5cc" />
+
 ### 11.2 `shopsphere-oke-worker-nsg`
 
 | Dir | Source / Destination | Protocol | Port(s) | Description |
@@ -372,6 +388,8 @@ Using **NSG as source/destination** means `Source type = Network security group`
 
 > If your workloads need other outbound ports (for example SMTP or a payment API), add them explicitly rather than opening all egress.
 
+<img width="1912" height="756" alt="image" src="https://github.com/user-attachments/assets/a2c8b3e6-cd93-4cea-a61f-8817ce35ac8d" />
+
 ### 11.3 `shopsphere-oke-api-nsg`
 
 | Dir | Source / Destination | Protocol | Port(s) | Description |
@@ -384,6 +402,8 @@ Using **NSG as source/destination** means `Source type = Network security group`
 | Egress | NSG `shopsphere-oke-worker-nsg` | ICMP | 3, 4 | Path MTU discovery |
 | Egress | Service `All <region> Services In Oracle Services Network` | TCP | 443 | Control plane to OCI services |
 
+<img width="1910" height="759" alt="image" src="https://github.com/user-attachments/assets/83818f17-40b6-45e3-bd39-3977d86d4a46" />
+
 ### 11.4 `shopsphere-database-nsg`
 
 | Dir | Source / Destination | Protocol | Port(s) | Description |
@@ -395,6 +415,8 @@ Using **NSG as source/destination** means `Source type = Network security group`
 > 🚫 **Critical:** Never allow port 3306 from `0.0.0.0/0`. The database accepts connections only from application workloads and, optionally, the bastion.
 >
 > If you later choose an **Oracle Database** instead of MySQL, the listener port is typically **1521**, so adjust the rule and ports consistently in both the database and worker NSGs.
+
+<img width="1907" height="751" alt="image" src="https://github.com/user-attachments/assets/fa2483b2-7926-48c8-bfa1-6aa5888c2bcd" />
 
 ### 11.5 `shopsphere-bastion-nsg`
 
@@ -410,6 +432,8 @@ Using **NSG as source/destination** means `Source type = Network security group`
 
 ✅ **Verify:** Counts are LB 4, worker 12, API 7, database 3, bastion 4 (3 if you omit the SSH rule), and no `0.0.0.0/0` appears on database, API or bastion rules except the HTTPS/ICMP egress rows noted.
 
+<img width="1915" height="752" alt="image" src="https://github.com/user-attachments/assets/84bc8b2a-aa87-47e9-82cc-4cf631167601" />
+
 ---
 
 ## 12. Admin Access: OCI Bastion Service
@@ -423,7 +447,7 @@ The managed **Bastion service** gives time-limited SSH or port-forwarding sessio
 
 | Field | Value |
 |---|---|
-| Name | `shopsphere-bastion` |
+| Name | `shopspherebastion` |
 | Bastion type | Standard |
 | Compartment | `shopsphere-network` |
 | Target VCN | `shopsphere-vcn` |
@@ -435,6 +459,8 @@ The managed **Bastion service** gives time-limited SSH or port-forwarding sessio
 > Make sure targets are reachable from the bastion's subnet. The bastion service needs the target's **NSG or security list to allow** inbound from the bastion subnet CIDR (`10.0.5.0/24`) or from `shopsphere-bastion-nsg`. For the private OKE API endpoint, use a **port-forwarding session** to port 6443.
 
 ✅ **Verify:** Bastion state is **Active** and the allowlist contains only your IP.
+
+<img width="1910" height="758" alt="image" src="https://github.com/user-attachments/assets/7a52d63c-cae4-4284-a634-f7c90822c72d" />
 
 ---
 
