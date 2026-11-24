@@ -1,190 +1,442 @@
-# Phase 1 – OCI Account and Foundation: Detailed Walkthrough
+# Phase 1 (Advanced, Manual) – OCI Account and Foundation
 
-A step-by-step explanation of everything in Phase 1, with context on why each step matters and how to do it correctly.
+The advanced Phase 1 for **ShopSphere**, done **entirely by hand** through the OCI Console and a terminal. No automation scripts, loops or CI. Every step is a click path or a single command you type yourself, followed by a check that it worked.
+
+> **How to use this guide:** Work top to bottom. Tick each ✅ **Verify** box before moving on. Keep a notes file (`~/shopsphere-oci/docs/phase1-notes.md`, git-ignored) to paste OCIDs as you create things.
 
 ---
 
 ## Table of Contents
 
-1. [Log in to OCI](#11-log-in-to-oci)
-2. [Create the Shopsphere Compartment](#12-create-the-shopsphere-compartment)
-3. [Configure IAM](#13-configure-iam-identity-and-access-management)
-4. [Enable MFA](#14-enable-mfa-multi-factor-authentication)
-5. [Install OCI CLI on Ubuntu](#15-install-oci-cli-on-ubuntu)
-6. [Create the Project Directory](#16-create-the-project-directory)
-7. [Configure Cost Alerts (Budgets)](#17-configure-cost-alerts-budgets)
-8. [Configure Terraform API Authentication](#18-configure-terraform-api-authentication)
-9. [Phase 1 Validation](#phase-1-validation)
-10. [Deliverable Summary](#deliverable-summary)
-11. [Common Pitfalls to Avoid](#common-pitfalls-to-avoid)
+1. [Target Design](#1-target-design)
+2. [Log In and Record Identifiers](#2-log-in-and-record-identifiers)
+3. [Create the Compartments](#3-create-the-compartments)
+4. [Create IAM Groups](#4-create-iam-groups)
+5. [Create IAM Policies](#5-create-iam-policies)
+6. [Create a Dynamic Group](#6-create-a-dynamic-group)
+7. [Enable and Enforce MFA](#7-enable-and-enforce-mfa)
+8. [Install and Configure the OCI CLI](#8-install-and-configure-the-oci-cli)
+9. [Create Tags](#9-create-tags)
+10. [Create the Budget and Alerts](#10-create-the-budget-and-alerts)
+11. [Security Baseline: Audit, Cloud Guard, Notifications](#11-security-baseline-audit-cloud-guard-notifications)
+12. [Create the Project Directory and Git Safety](#12-create-the-project-directory-and-git-safety)
+13. [Terraform Authentication and Remote State](#13-terraform-authentication-and-remote-state)
+14. [Manual Validation Checklist](#14-manual-validation-checklist)
+15. [Troubleshooting](#15-troubleshooting)
+16. [Pitfalls and Hardening Checklist](#16-pitfalls-and-hardening-checklist)
 
 ---
 
-## 1.1 Log in to OCI
+## 1. Target Design
 
-**What it is:** The entry point. You need an Oracle Cloud Infrastructure (OCI) account and a user identity before anything else.
+```text
+<tenancy root>
+└── Shopsphere                  # project boundary (budget, tags, admin policy)
+    ├── shopsphere-network      # VCNs, subnets, gateways
+    ├── shopsphere-security     # Vault, keys, notifications, state bucket
+    ├── shopsphere-platform     # OKE, registries, shared tooling
+    ├── shopsphere-app          # compute, containers, load balancers
+    └── shopsphere-data         # databases, object storage, backups
+```
 
-### How to do it
+| Choice | Reason |
+|---|---|
+| Child compartments per concern | Separate access and blast radius for network, data and app |
+| Policies inherited from `Shopsphere` | A statement on the parent covers all children |
+| One budget on the parent | Rolls up the whole project's cost |
+| Environments handled by tags and Terraform state | Keeps the tree small for a learning project |
 
-1. Go to <https://cloud.oracle.com> (the OCI Console).
-2. Sign in with your cloud account name (tenancy) and your username/password.
-3. If prompted, choose your **home region**. This is the region where your tenancy's identity resources live. **It cannot be changed later**, so choose deliberately.
-4. You land on the OCI Console dashboard.
+---
 
-### Why record these values
+## 2. Log In and Record Identifiers
 
-You'll need them repeatedly for CLI and Terraform configuration.
+### Steps
+
+1. Open <https://cloud.oracle.com>.
+2. Enter your **cloud account name (tenancy)**, then sign in with your username and password.
+3. If asked, choose your **home region**. It **cannot be changed later**.
+4. Open the **Profile** menu (top right) and collect the values below.
+
+### Record these in your notes file
 
 | Value | Where to find it |
 |---|---|
-| `TENANCY_NAME` | Your cloud account name (shown at login) |
-| `TENANCY_OCID` | Profile menu → Tenancy (or Administration → Tenancy Details) |
-| `USER_OCID` | Profile menu → My Profile → User Details |
-| `HOME_REGION` | Console region selector (e.g., `us-ashburn-1`) |
-| `REGION_IDENTIFIER` | The short region key, e.g., `iad`, `phx`, `fra` |
+| Tenancy name | Shown at login |
+| `TENANCY_OCID` | Profile menu → **Tenancy** → copy OCID |
+| `USER_OCID` | Profile menu → **My profile** → copy OCID |
+| Home region | Region selector at top (e.g. `us-ashburn-1`) |
+| Region key | Tenancy details page (e.g. `IAD`) |
+| Object Storage namespace | Profile menu → **Tenancy** → *Object storage namespace* |
 
-> ⚠️ **Security note:** Keep OCIDs private. Never commit private keys, passwords, or API tokens to Git.
+> ⚠️ Keep OCIDs private. Never commit private keys, passwords or tokens to Git.
+
+✅ **Verify:** All six values are saved in your notes file.
 
 ---
 
-## 1.2 Create the Shopsphere Compartment
+## 3. Create the Compartments
 
-**What a compartment is:** A logical container for OCI resources (like a folder/project boundary). It is the fundamental unit for access control and cost tracking. Resources in one compartment can be isolated from another via IAM policies.
+IAM, tags and budgets are **home-region** resources. Make sure the region selector shows your home region.
 
-### How to do it
+### 3.1 Create the parent compartment
 
-1. Navigate: **Identity & Security → Identity → Compartments**.
-2. Click **Create Compartment**.
-3. Fill in:
+1. Menu (☰) → **Identity & Security** → **Compartments**.
+2. Click **Create compartment**.
+3. Enter:
    - **Name:** `Shopsphere`
    - **Description:** `ShopSphere E-Commerce Production Learning Project`
-   - **Parent Compartment:** Root compartment (top-level)
-   - **Tags:** optional (skip or add later)
-4. Click **Create** and wait until the status is **Active** (usually seconds).
-5. **Record the OCID:** Click the compartment name and copy the OCID shown on the details page.
+   - **Parent compartment:** root (your tenancy)
+4. Click **Create compartment**.
+5. Wait for **Active**, open it, and copy the OCID as `SHOPSPHERE_COMPARTMENT_OCID`.
 
-### Local config
+### 3.2 Create the five child compartments
 
-```bash
-export COMPARTMENT_NAME="Shopsphere"
-export SHOPSPHERE_COMPARTMENT_OCID="<paste-ocid-here>"
-```
+Open `Shopsphere` in the compartment list, then click **Create compartment** inside it (parent must show `Shopsphere`). Create each one:
 
-> **Note:** The original document had a typo, `SHOPSPhERE_COMPARTMENT_OCID`. The correct name is `SHOPSPHERE_COMPARTMENT_OCID`.
+| Name | Description |
+|---|---|
+| `shopsphere-network` | ShopSphere network resources |
+| `shopsphere-security` | ShopSphere security resources |
+| `shopsphere-platform` | ShopSphere platform resources |
+| `shopsphere-app` | ShopSphere application resources |
+| `shopsphere-data` | ShopSphere data resources |
+
+Copy each OCID into your notes file (`SHOPSPHERE_NETWORK_COMPARTMENT_OCID`, and so on).
+
+> Compartment deletion is slow and needs an empty compartment, so double-check names before creating.
+
+✅ **Verify:** Compartments page shows `Shopsphere` with five **Active** children.
 
 ---
 
-## 1.3 Configure IAM (Identity and Access Management)
+## 4. Create IAM Groups
 
-**What it is:** OCI's authorization system. You create groups of users and attach policies that grant permissions on compartments.
+### 4.1 Find your identity domain
 
-### Create groups
+Menu → **Identity & Security** → **Domains**. Note whether you use the **Default** domain or another one. This affects policy syntax in section 5.
 
-(if your identity-domain permissions allow)
+### 4.2 Create the groups
+
+1. Click your domain → **User management** → **Groups** → **Create group**.
+2. Create these five groups (name and description are the same pattern):
 
 | Group | Purpose |
 |---|---|
-| `shopsphere-admins` | Full control |
-| `shopsphere-developers` | Limited build/deploy rights |
-| `shopsphere-readonly` | View-only |
+| `shopsphere-admins` | Manage everything in the project |
+| `shopsphere-network-admins` | Own VCNs and gateways |
+| `shopsphere-developers` | Build and deploy workloads |
+| `shopsphere-dba` | Databases and backups |
+| `shopsphere-readonly` | View only |
 
-**Navigation:** Identity & Security → Identity → Domains → *(your domain)* → Groups → Create Group.
+### 4.3 Add yourself to the admins group
 
-### Create policies
+1. Open `shopsphere-admins` → **Users** tab → **Assign user to group**.
+2. Select your user → **Assign**.
 
-**Navigation:** Identity & Security → Identity → Policies → Create Policy.
+> **Best practice:** Treat the tenancy `Administrators` login as a **break-glass** account. Do daily work as a user in `shopsphere-admins`.
 
-Example administrator policy:
+✅ **Verify:** Each group is listed, and your user appears under `shopsphere-admins`.
+
+---
+
+## 5. Create IAM Policies
+
+1. Menu → **Identity & Security** → **Policies**.
+2. Set the compartment filter to the **root** (tenancy) so the policy is attached there.
+3. Click **Create policy**.
+4. Enter:
+   - **Name:** `shopsphere-core-policies`
+   - **Description:** `ShopSphere role-based access policies`
+   - **Compartment:** root
+5. Turn on **Show manual editor** and paste:
 
 ```text
 Allow group shopsphere-admins to manage all-resources in compartment Shopsphere
+
+Allow group shopsphere-network-admins to manage virtual-network-family in compartment shopsphere-network
+Allow group shopsphere-network-admins to read all-resources in compartment Shopsphere
+
+Allow group shopsphere-developers to manage instance-family in compartment shopsphere-app
+Allow group shopsphere-developers to manage load-balancers in compartment shopsphere-app
+Allow group shopsphere-developers to manage cluster-family in compartment shopsphere-platform
+Allow group shopsphere-developers to manage repos in compartment shopsphere-platform
+Allow group shopsphere-developers to use virtual-network-family in compartment shopsphere-network
+Allow group shopsphere-developers to read all-resources in compartment Shopsphere
+
+Allow group shopsphere-dba to manage database-family in compartment shopsphere-data
+Allow group shopsphere-dba to manage object-family in compartment shopsphere-data
+Allow group shopsphere-dba to use virtual-network-family in compartment shopsphere-network
+
+Allow group shopsphere-readonly to read all-resources in compartment Shopsphere
 ```
 
-**Why:** Least privilege. `manage all-resources` in the compartment is powerful, so only trusted admins should get it. Developers should get narrower statements (e.g., `manage instances`, `manage object-family`, `use virtual-network-family`).
+6. Click **Create**.
+
+> **Non-default identity domain?** Prefix each group, for example `Allow group 'MyDomain'/'shopsphere-admins' to ...`.
+
+> OCI IAM is **deny by default** and has no explicit deny. Never grant `manage all-resources` outside the admin group.
+
+✅ **Verify:** The policy shows **Active** with all statements and no syntax warnings.
 
 ---
 
-## 1.4 Enable MFA (Multi-Factor Authentication)
+## 6. Create a Dynamic Group
 
-**Why:** Passwords alone are not enough. MFA protects your tenancy even if credentials leak.
+Workloads (compute, OKE nodes) should authenticate with **instance principals**, not stored keys. Create the group now; attach policies in later phases.
 
-### How
+1. Menu → **Identity & Security** → **Domains** → your domain → **Dynamic groups** → **Create dynamic group**.
+2. Enter:
+   - **Name:** `shopsphere-app-instances`
+   - **Description:** `Compute instances in the app compartment`
+3. Matching rule (replace the OCID with `SHOPSPHERE_APP_COMPARTMENT_OCID`):
 
-1. Click your **Profile avatar → My Profile**.
-2. Go to the **Security** tab.
-3. Enable an MFA method (TOTP authenticator app or hardware key).
-4. **Test it:** sign out and sign back in to confirm MFA is enforced.
+```text
+ALL {instance.compartment.id = 'ocid1.compartment.oc1..xxxx'}
+```
+
+4. Click **Create**.
+
+Example policy for a later phase:
+
+```text
+Allow dynamic-group shopsphere-app-instances to read secret-bundles in compartment shopsphere-security
+```
+
+✅ **Verify:** The dynamic group exists and the rule shows your app compartment OCID.
 
 ---
 
-## 1.5 Install OCI CLI on Ubuntu
+## 7. Enable and Enforce MFA
 
-**What the CLI is:** Oracle's command-line tool for managing OCI resources. It is essential for scripting, Terraform bootstrap, and validation.
+### 7.1 Enable MFA for your own user
 
-### Step 1 – Update and install prerequisites
+1. Profile avatar → **My profile** → **Security**.
+2. Under **Multi-factor authentication**, click **Enable** and choose an authenticator app (TOTP) or a FIDO2 / passkey device.
+3. Scan the QR code and enter the verification code.
+4. Save the **backup/recovery** option offline.
+5. Sign out, sign in again and confirm the MFA prompt appears.
+
+### 7.2 Enforce MFA for all users
+
+1. Menu → **Identity & Security** → **Domains** → your domain → **Security** → **Sign-on policies**.
+2. Edit the **Default Sign-On Policy** (or create a new one) and add a rule that requires MFA for **all** users, not only when risky.
+3. Make sure administrators are **not** exempted.
+4. Under **MFA settings**, enable at least **two** methods so a lost device does not lock you out.
+
+> MFA protects the **console**. API keys bypass it, which is why section 8 uses short-lived **session tokens**.
+
+✅ **Verify:** Fresh sign-in forces a second factor; two methods are registered.
+
+---
+
+## 8. Install and Configure the OCI CLI
+
+### 8.1 Install prerequisites (Ubuntu)
 
 ```bash
-# Update the package index and upgrade existing packages
 sudo apt update
 sudo apt upgrade -y
-
-# Install prerequisites
-sudo apt install -y \
-  curl unzip git jq \
-  python3 python3-pip \
-  python3-venv
+sudo apt install -y curl unzip git jq python3 python3-pip python3-venv
 ```
 
-### Step 2 – Install the OCI CLI
-
-Use Oracle's official installer (recommended):
+### 8.2 Install the CLI
 
 ```bash
 bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)"
 ```
 
-Accept the defaults, then reload your shell (`source ~/.bashrc`) or open a new terminal.
-
-### Step 3 – Verify
+Accept the defaults, then open a new terminal (or `source ~/.bashrc`).
 
 ```bash
 oci --version
 ```
 
-### Step 4 – Configure the CLI
+> 🔎 On shared or sensitive machines, download and read the install script before running it.
+
+### 8.3 Preferred login: session token
+
+```bash
+oci session authenticate --region <home-region> --profile-name SHOPSPHERE
+```
+
+A browser opens. Sign in (with MFA) and approve. Then tell the CLI to use it:
+
+```bash
+export OCI_CLI_PROFILE=SHOPSPHERE
+export OCI_CLI_AUTH=security_token
+oci iam region list
+```
+
+Session tokens expire (about an hour). Refresh with:
+
+```bash
+oci session refresh --profile SHOPSPHERE
+```
+
+### 8.4 Fallback: API key profile
+
+Use this only where browser login is not possible.
 
 ```bash
 oci setup config
 ```
 
-It will prompt for:
+Answer the prompts: user OCID, tenancy OCID, region, and **Yes** to generate a key pair. Then:
 
-- User OCID
-- Tenancy OCID
-- Region (e.g., `us-ashburn-1`)
-- Whether to generate an API key pair (say **Yes**, the easiest path)
+1. Console → Profile → **My profile** → **API keys** → **Add API key** → **Paste a public key**.
+2. Paste the contents of `~/.oci/oci_api_key_public.pem`.
+3. Compare the fingerprint shown with the one in `~/.oci/config`.
 
-This creates `~/.oci/config` and `~/.oci/oci_api_key.pem` (private key), plus a public key you **must upload** to your user in the Console:
-
-**Profile → My Profile → API Keys → Add API Key → Paste Public Key**
-
-### Step 5 – Test
+Fix file permissions:
 
 ```bash
-oci iam region list
+oci setup repair-file-permissions --file ~/.oci/config
+oci setup repair-file-permissions --file ~/.oci/oci_api_key.pem
 ```
+
+Test:
+
+```bash
+oci iam region list --auth api_key
+```
+
+### 8.5 Config file shape
+
+```ini
+[DEFAULT]
+user=ocid1.user.oc1..xxxx
+fingerprint=aa:bb:cc:...
+tenancy=ocid1.tenancy.oc1..xxxx
+region=us-ashburn-1
+key_file=/home/<you>/.oci/oci_api_key.pem
+```
+
+> 🔒 The private key (`oci_api_key.pem`) never goes into Git. Keep it in `~/.oci` with `chmod 600`.
+
+✅ **Verify:** `oci --version` works and `oci iam region list` returns data.
 
 ---
 
-## 1.6 Create the Project Directory
+## 9. Create Tags
 
-**Why:** A consistent, predictable layout for Terraform, application code, Kubernetes manifests, and GitOps. Do this now so later phases don't scatter files.
+Create tags **before** any resources exist so everything can be tagged from day one.
+
+### 9.1 Tag namespace
+
+1. Menu → **Governance & Administration** → **Tag Namespaces**.
+2. Select compartment `Shopsphere` → **Create namespace definition**.
+3. **Name:** `shopsphere`, **Description:** `ShopSphere governance tags` → **Create**.
+
+### 9.2 Tag keys
+
+Open the `shopsphere` namespace → **Create tag key definition** for each:
+
+| Key | Description | Settings |
+|---|---|---|
+| `environment` | dev, staging or production | Cost-tracking **on**; value type **A list of values**: `dev`, `staging`, `production` |
+| `owner` | Responsible person or team | Cost-tracking **on** |
+| `cost-center` | Cost allocation code | Cost-tracking **on** |
+
+### 9.3 Tag defaults (optional but recommended)
+
+1. Open the `Shopsphere` compartment details → **Tag defaults** → **Assign tag defaults**.
+2. Choose `shopsphere.owner` (and `shopsphere.cost-center`) and set a default value, optionally marking it **User-provided** so it is required.
+
+✅ **Verify:** The namespace shows three keys with cost-tracking enabled.
+
+---
+
+## 10. Create the Budget and Alerts
+
+> A budget **alerts**. It never stops resources.
+
+### 10.1 Budget
+
+1. Menu → **Billing & Cost Management** → **Budgets** → **Create budget**.
+2. Enter:
+   - **Name:** `shopsphere-monthly`
+   - **Description:** `Monthly spend alerts for ShopSphere`
+   - **Budget scope:** **Compartment** → `Shopsphere`
+   - **Reset period:** Monthly (day 1)
+   - **Budget amount:** for example `50` (or your currency equivalent)
+3. Click **Next**.
+
+### 10.2 Alert rules
+
+Create four rules, each with your email as recipient:
+
+| Rule type | Threshold | Purpose |
+|---|---|---|
+| Actual spend | 50% | Early notice |
+| Actual spend | 75% | Review resources |
+| Actual spend | 90% | Act now |
+| **Forecast** spend | 100% | Fires **before** you overspend |
+
+Click **Create**.
+
+### 10.3 Weekly manual routine
+
+| Habit | When |
+|---|---|
+| Open **Cost Analysis**, group by tag `shopsphere.environment` | Weekly |
+| Delete idle load balancers, boot volumes, reserved IPs | Weekly |
+| Stop or terminate dev compute you are not using | Daily |
+| Confirm alert recipient emails are valid | Monthly |
+
+> ⚠️ Cost data can lag by hours up to a day, so a runaway resource can spend a lot before the first alert arrives.
+
+✅ **Verify:** The budget lists four alert rules and the target shows `Shopsphere`.
+
+---
+
+## 11. Security Baseline: Audit, Cloud Guard, Notifications
+
+### 11.1 Audit (always on)
+
+1. Menu → **Observability & Management** → **Audit**.
+2. Pick compartment `Shopsphere`, set a recent time range and click **Search**.
+3. Confirm you can see your own recent actions (for example the compartment creations).
+
+Default retention is 365 days.
+
+### 11.2 Cloud Guard
+
+1. Menu → **Identity & Security** → **Cloud Guard** → **Enable Cloud Guard**.
+2. Choose your **home region** as the reporting region.
+3. Accept the policy creation prompt, then set the **root** compartment as the target so it covers `Shopsphere`.
+4. Keep the Oracle-managed detector recipes enabled to start.
+
+### 11.3 Notifications topic
+
+1. Menu → **Developer Services** → **Application Integration** → **Notifications** → **Create topic**.
+2. Compartment: `shopsphere-security`; **Name:** `shopsphere-alerts`.
+3. Open the topic → **Create subscription** → protocol **Email** → your address.
+4. Open the confirmation email and click **Confirm subscription**. Without this nothing is delivered.
+
+### 11.4 Later phases
+
+| Capability | Phase |
+|---|---|
+| Vault and KMS keys | Security phase |
+| Security Zones | After networking |
+| Bastion service instead of public SSH | Network phase |
+| Logging and VCN flow logs | Observability phase |
+
+✅ **Verify:** Audit shows your events, Cloud Guard is **Enabled**, and the subscription status is **Confirmed**.
+
+---
+
+## 12. Create the Project Directory and Git Safety
+
+### 12.1 Create folders
 
 ```bash
 mkdir -p ~/shopsphere-oci
 cd ~/shopsphere-oci
 
 mkdir -p \
+  iam \
+  terraform/bootstrap \
   terraform/modules \
   terraform/environments/dev \
   terraform/environments/staging \
@@ -196,137 +448,248 @@ mkdir -p \
   kubernetes/policies \
   gitops/applications \
   gitops/environments \
-  docs \
+  docs/adr \
+  docs/runbooks \
   scripts
 ```
 
-### Layout logic
-
-| Path | Purpose |
-|---|---|
-| `terraform/modules` | Reusable modules (network, compute, etc.) |
-| `terraform/environments/{dev,staging,production}` | Per-environment root configs |
-| `application/` | Application source |
-| `kubernetes/` | Helm charts, namespaces, policies |
-| `gitops/` | Argo CD / Flux application definitions |
-| `docs/`, `scripts/` | Documentation and helper scripts |
-
-> **Strongly recommended:** Run `git init` here and add a `.gitignore` that excludes `*.pem`, `.oci/`, `.terraform/`, `*.tfstate*`, and `*.tfvars` containing secrets.
-
----
-
-## 1.7 Configure Cost Alerts (Budgets)
-
-**What it is:** A budget is a **notification threshold, not a hard spending cap**. OCI will email you when spend crosses the percentages you set, but it will not stop resources.
-
-### How
-
-1. Navigate: **Billing & Cost Management → Budgets**.
-2. Click **Create Budget**.
-3. **Target:** Compartment → `Shopsphere`.
-4. Set a monthly amount (e.g., $50 or $100 for a learning project).
-5. Add alert rules at **50%, 75%, 90%** of the budget, each with your email.
-
-> 💡 **Reality check:** Budgets alone won't prevent surprise bills. Also enable cost-tracking tags and periodically review **Cost Analysis**. For real protection, pair budgets with automated cleanup scripts (later phase).
-
----
-
-## 1.8 Configure Terraform API Authentication
-
-**What it is:** Terraform needs to authenticate to OCI. The standard method is API key authentication: a private key stored locally, with the matching public key registered to your OCI user.
-
-### How
-
-If you already ran `oci setup config` (1.5), the key pair exists. Otherwise:
+### 12.2 Initialise Git
 
 ```bash
-mkdir -p ~/.oci
-chmod 700 ~/.oci
-openssl genrsa -out ~/.oci/oci_api_key.pem 2048
-chmod 600 ~/.oci/oci_api_key.pem
-openssl rsa -pubout -in ~/.oci/oci_api_key.pem -out ~/.oci/oci_api_key_public.pem
+git init -b main
 ```
 
-Register the public key in the Console:
+### 12.3 Create `.gitignore` **before the first commit**
 
-**Profile → My Profile → API Keys → Add API Key → Paste Public Key**
-
-Copy the fingerprint shown and put it in `~/.oci/config`:
-
-```ini
-[DEFAULT]
-user=ocid1.user.oc1..xxxx
-fingerprint=aa:bb:cc:...
-tenancy=ocid1.tenancy.oc1..xxxx
-region=us-ashburn-1
-key_file=~/.oci/oci_api_key.pem
+```bash
+nano .gitignore
 ```
 
-> 🔒 **Critical:** The private key (`oci_api_key.pem`) must **never** enter the Git repo. Keep it in `~/.oci` with `chmod 600`. Terraform reads it via `~/.oci/config`.
+Paste:
 
-### Terraform provider block (for later use)
+```gitignore
+# Secrets and credentials
+*.pem
+*.key
+.oci/
+.env*
+*.tfvars
+!*.tfvars.example
+secrets/
+docs/phase1-notes.md
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfplan
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+```
+
+> Commit `.terraform.lock.hcl`; it pins provider versions.
+
+### 12.4 Record your decision
+
+Create `docs/adr/0001-compartment-strategy.md` with a few lines on **why** you chose the layout in section 1.
+
+✅ **Verify:** `git status` does not list any `.pem`, `.env` or notes files.
+
+---
+
+## 13. Terraform Authentication and Remote State
+
+### 13.1 Install Terraform
+
+```bash
+sudo apt install -y gnupg software-properties-common
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update
+sudo apt install -y terraform
+terraform version
+```
+
+### 13.2 Create the state bucket
+
+1. Menu → **Storage** → **Buckets**; compartment `shopsphere-security`.
+2. **Create bucket**:
+   - **Name:** `shopsphere-tfstate`
+   - **Tier:** Standard
+   - **Enable object versioning:** on
+   - Visibility: **Private**
+3. Click **Create**.
+
+### 13.3 Create a customer secret key (for the S3-compatible backend)
+
+1. Profile → **My profile** → **Customer secret keys** → **Generate secret key**.
+2. Name it `terraform-state`.
+3. **Copy the secret immediately**; it is shown only once.
+4. Note the **Access key** shown in the list.
+
+Set them in your shell when needed (do not write them into `.tf` files):
+
+```bash
+export AWS_ACCESS_KEY_ID="<access-key>"
+export AWS_SECRET_ACCESS_KEY="<secret-key>"
+```
+
+### 13.4 Backend and provider files
+
+`terraform/environments/dev/backend.tf`:
 
 ```hcl
-provider "oci" {
-  tenancy_ocid     = var.tenancy_ocid
-  user_ocid        = var.user_ocid
-  fingerprint      = var.fingerprint
-  private_key_path = "~/.oci/oci_api_key.pem"
-  region           = var.region
+terraform {
+  required_version = ">= 1.6.0"
+
+  backend "s3" {
+    bucket = "shopsphere-tfstate"
+    key    = "dev/terraform.tfstate"
+    region = "us-ashburn-1"
+
+    endpoints = {
+      s3 = "https://<NAMESPACE>.compat.objectstorage.us-ashburn-1.oraclecloud.com"
+    }
+
+    use_path_style              = true
+    skip_region_validation      = true
+    skip_credentials_validation = true
+    skip_requesting_account_id  = true
+    skip_metadata_api_check     = true
+    skip_s3_checksum            = true
+  }
 }
 ```
 
----
+`terraform/environments/dev/providers.tf`:
 
-## Phase 1 Validation
+```hcl
+terraform {
+  required_providers {
+    oci = {
+      source  = "oracle/oci"
+      version = "~> 6.0"
+    }
+  }
+}
 
-Run:
+variable "region" {
+  type = string
+}
 
-```bash
-oci iam compartment list \
-  --compartment-id-in-subtree true \
-  --access-level ACCESSIBLE
+variable "config_file_profile" {
+  type    = string
+  default = "SHOPSPHERE"
+}
+
+provider "oci" {
+  auth                = "SecurityToken"
+  config_file_profile = var.config_file_profile
+  region              = var.region
+}
 ```
 
-**What this does:**
+> If you used the API-key fallback, use `auth = "APIKey"` and `config_file_profile = "DEFAULT"`.
 
-- `--compartment-id-in-subtree true` includes all compartments under your tenancy root.
-- `--access-level ACCESSIBLE` shows only compartments you're allowed to see.
+> ⚠️ The S3-compatible backend on OCI has **no native state locking**. Run `apply` from one place at a time.
 
-**Expected result:** You see the `Shopsphere` compartment in the JSON output (look for `"name": "Shopsphere"`). If not, check that your IAM policy grants your user access.
-
-### Quick confirm
+### 13.5 First run
 
 ```bash
-oci iam compartment list --all | jq -r '.data[] | select(.name=="Shopsphere") | .id'
+cd ~/shopsphere-oci/terraform/environments/dev
+terraform init
+terraform validate
 ```
 
-This should print the compartment OCID.
+✅ **Verify:** `terraform init` reports the backend initialised successfully.
 
 ---
 
-## Deliverable Summary
+## 14. Manual Validation Checklist
 
-By the end of Phase 1 you should have:
+Run these by hand and tick each one.
 
-| Item | Status check |
-|---|---|
-| OCI tenancy + user | Logged in, OCIDs recorded |
-| Shopsphere compartment | Active, OCID recorded |
-| IAM groups + policies | Admins/developers/readonly created |
-| MFA enabled | Tested login |
-| OCI CLI installed + configured | `oci --version` and `oci iam region list` work |
-| Project directory tree | `~/shopsphere-oci` with all subfolders |
-| Budget alerts | 50/75/90% notifications configured |
-| Terraform API auth | Public key registered, `~/.oci/config` in place, private key secured |
+### 14.1 Commands
+
+```bash
+oci iam region list
+```
+
+```bash
+oci iam compartment list --compartment-id-in-subtree true --access-level ACCESSIBLE --all | jq -r '.data[] | select(.name | startswith("Shopsphere") or startswith("shopsphere")) | .name'
+```
+
+Expected output lists `Shopsphere` and the five `shopsphere-*` children.
+
+```bash
+oci iam group list --all | jq -r '.data[] | select(.name | startswith("shopsphere")) | .name'
+```
+
+Expected: the five groups.
+
+### 14.2 Console checks
+
+| # | Check | Done |
+|---|---|---|
+| 1 | Tenancy, user, region, namespace recorded | ☐ |
+| 2 | `Shopsphere` and five child compartments are **Active** | ☐ |
+| 3 | Five groups exist; you are in `shopsphere-admins` | ☐ |
+| 4 | `shopsphere-core-policies` is **Active** | ☐ |
+| 5 | Dynamic group `shopsphere-app-instances` exists | ☐ |
+| 6 | MFA enforced, two methods registered, sign-in tested | ☐ |
+| 7 | CLI session token works (`oci iam region list`) | ☐ |
+| 8 | Tag namespace with three cost-tracking keys | ☐ |
+| 9 | Budget with four alert rules | ☐ |
+| 10 | Audit shows events; Cloud Guard enabled | ☐ |
+| 11 | Notification subscription **Confirmed** | ☐ |
+| 12 | Project tree created; `.gitignore` in place before first commit | ☐ |
+| 13 | State bucket versioned and private; `terraform init` succeeds | ☐ |
 
 ---
 
-## Common Pitfalls to Avoid
+## 15. Troubleshooting
 
-1. **Wrong home region:** It cannot be changed; verify before creating resources.
-2. **Public key not uploaded:** `oci setup config` succeeds but API calls fail with `401`. Always upload the public key to your user.
-3. **Private key in Git:** Catastrophic. Add `.gitignore` before the first commit.
-4. **Over-permissive policies:** `manage all-resources` for developers is a security anti-pattern. Scope tightly.
-5. **Budget mistaken for a cap:** It won't stop spend. Review costs weekly during learning.
-6. **Typos in variable names:** e.g., `SHOPSPhERE_...`. Keep them consistent (`SHOPSPHERE_COMPARTMENT_OCID`).
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `401 NotAuthenticated` | Public key not uploaded, wrong fingerprint or expired session | Re-upload the key, compare fingerprints, run `oci session refresh` |
+| `404 NotAuthorizedOrNotFound` | Missing policy, wrong compartment or region | Check policy statements and group membership. OCI uses one error for both cases |
+| Cannot create IAM, tag or budget resources | Not in home region | Switch the region selector to your home region |
+| Groups not recognised in a policy | Groups live in a non-default domain | Use `'Domain'/'group'` syntax |
+| No budget emails | Wrong recipient or spam filter | Re-check recipients and spam folder |
+| `terraform init` backend error | Wrong namespace in endpoint, or bad secret key | Re-check the namespace; generate a new customer secret key |
+| `Permissions on ~/.oci/config are too open` | Loose file mode | `oci setup repair-file-permissions --file ~/.oci/config` |
+
+---
+
+## 16. Pitfalls and Hardening Checklist
+
+### Pitfalls
+
+1. **Wrong home region.** Cannot be changed. Verify before building anything.
+2. **Daily use of the tenancy admin.** Keep it for emergencies only.
+3. **Long-lived API keys on laptops.** Prefer session tokens; rotate API keys regularly if you keep them.
+4. **Private keys or state in Git.** State can hold secrets in plain text.
+5. **Over-broad policies.** Scope to compartments and resource families.
+6. **Budget treated as a cap.** It only alerts.
+7. **Untagged resources.** Cost reports become hard to read.
+8. **Single MFA device with no backup.** Register a second method.
+9. **Typos in names.** Keep variable names consistent (`SHOPSPHERE_COMPARTMENT_OCID`).
+
+### Hardening checklist
+
+- [ ] MFA enforced through a sign-on policy for every user
+- [ ] Break-glass admin credentials stored offline
+- [ ] CLI uses session tokens; unneeded API keys deleted
+- [ ] Policies reviewed every quarter
+- [ ] Cloud Guard active with notifications going to a monitored mailbox
+- [ ] State bucket private, versioned and restricted to admins
+- [ ] Tag defaults applied; Cost Analysis grouped by tag
+- [ ] `.gitignore` committed first, before any other file
+
+---
+
+*End of Phase 1 (Advanced, Manual). Next: Phase 2, Networking (VCN, subnets, gateways, security lists/NSGs), built step by step in `shopsphere-network`.*
