@@ -85,7 +85,9 @@ IAM, tags and budgets are **home-region** resources. Make sure the region select
    - **Parent compartment:** root (your tenancy)
 4. Click **Create compartment**.
 5. Wait for **Active**, open it, and copy the OCID as `SHOPSPHERE_COMPARTMENT_OCID`.
-<img width="1897" height="799" alt="Picture1" src="https://github.com/user-attachments/assets/353adbda-d1f3-4479-845d-5f338032d790" />
+   
+<img width="1914" height="757" alt="image" src="https://github.com/user-attachments/assets/ea9aecb3-3a19-4c00-a396-70eb59a0eeba" />
+---
 
 ### 3.2 Create the five child compartments
 
@@ -104,8 +106,8 @@ Copy each OCID into your notes file (`SHOPSPHERE_NETWORK_COMPARTMENT_OCID`, and 
 > Compartment deletion is slow and needs an empty compartment, so double-check names before creating.
 
 ✅ **Verify:** Compartments page shows `Shopsphere` with five **Active** children.
-<img width="1902" height="798" alt="image" src="https://github.com/user-attachments/assets/3e5ef275-e896-4a91-9d06-47dffa4bbae6" />
 
+<img width="1910" height="757" alt="image" src="https://github.com/user-attachments/assets/db662093-de37-48e8-aa51-ecfada900b1b" />
 ---
 
 ## 4. Create IAM Groups
