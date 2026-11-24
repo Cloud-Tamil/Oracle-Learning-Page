@@ -88,6 +88,7 @@ IAM, tags and budgets are **home-region** resources. Make sure the region select
    - **Parent compartment:** root (your tenancy)
 4. Click **Create compartment**.
 5. Wait for **Active**, open it, and copy the OCID as `SHOPSPHERE_COMPARTMENT_OCID`.
+<img width="1897" height="799" alt="Picture1" src="https://github.com/user-attachments/assets/353adbda-d1f3-4479-845d-5f338032d790" />
 
 ### 3.2 Create the five child compartments
 
