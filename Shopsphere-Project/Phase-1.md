@@ -15,12 +15,11 @@ The advanced Phase 1 for **ShopSphere**, done **entirely by hand** through the O
 5. [Create IAM Policies](#5-create-iam-policies)
 6. [Create a Dynamic Group](#6-create-a-dynamic-group)
 7. [Enable and Enforce MFA](#7-enable-and-enforce-mfa)
-8. [Install and Configure the OCI CLI](#8-install-and-configure-the-oci-cli)
-9. [Create Tags](#9-create-tags)
-10. [Create the Budget and Alerts](#10-create-the-budget-and-alerts)
-11. [Security Baseline: Audit, Cloud Guard, Notifications](#11-security-baseline-audit-cloud-guard-notifications)
-12. [Troubleshooting](#15-troubleshooting)
-13. [Pitfalls and Hardening Checklist](#16-pitfalls-and-hardening-checklist)
+8. [Create Tags](#9-create-tags)
+9. [Create the Budget and Alerts](#10-create-the-budget-and-alerts)
+10. [Security Baseline: Audit, Cloud Guard, Notifications](#11-security-baseline-audit-cloud-guard-notifications)
+11. [Troubleshooting](#15-troubleshooting)
+12. [Pitfalls and Hardening Checklist](#16-pitfalls-and-hardening-checklist)
 
 ---
 
@@ -238,105 +237,17 @@ Allow dynamic-group shopsphere-app-instances to read secret-bundles in compartme
 
 ---
 
-## 8. Install and Configure the OCI CLI
-
-### 8.1 Install prerequisites (Ubuntu)
-
-```bash
-sudo apt update
-sudo apt upgrade -y
-sudo apt install -y curl unzip git jq python3 python3-pip python3-venv
-```
-
-### 8.2 Install the CLI
-
-```bash
-bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)"
-```
-
-Accept the defaults, then open a new terminal (or `source ~/.bashrc`).
-
-```bash
-oci --version
-```
-
-> 🔎 On shared or sensitive machines, download and read the install script before running it.
-
-### 8.3 Preferred login: session token
-
-```bash
-oci session authenticate --region <home-region> --profile-name SHOPSPHERE
-```
-
-A browser opens. Sign in (with MFA) and approve. Then tell the CLI to use it:
-
-```bash
-export OCI_CLI_PROFILE=SHOPSPHERE
-export OCI_CLI_AUTH=security_token
-oci iam region list
-```
-
-Session tokens expire (about an hour). Refresh with:
-
-```bash
-oci session refresh --profile SHOPSPHERE
-```
-
-### 8.4 Fallback: API key profile
-
-Use this only where browser login is not possible.
-
-```bash
-oci setup config
-```
-
-Answer the prompts: user OCID, tenancy OCID, region, and **Yes** to generate a key pair. Then:
-
-1. Console → Profile → **My profile** → **API keys** → **Add API key** → **Paste a public key**.
-2. Paste the contents of `~/.oci/oci_api_key_public.pem`.
-3. Compare the fingerprint shown with the one in `~/.oci/config`.
-
-Fix file permissions:
-
-```bash
-oci setup repair-file-permissions --file ~/.oci/config
-oci setup repair-file-permissions --file ~/.oci/oci_api_key.pem
-```
-
-Test:
-
-```bash
-oci iam region list --auth api_key
-```
-
-### 8.5 Config file shape
-
-```ini
-[DEFAULT]
-user=ocid1.user.oc1..xxxx
-fingerprint=aa:bb:cc:...
-tenancy=ocid1.tenancy.oc1..xxxx
-region=us-ashburn-1
-key_file=/home/<you>/.oci/oci_api_key.pem
-```
-
-> 🔒 The private key (`oci_api_key.pem`) never goes into Git. Keep it in `~/.oci` with `chmod 600`.
-
-✅ **Verify:** `oci --version` works and `oci iam region list` returns data.
-
----
-
-## 9. Create Tags
+## 8. Create Tags
 
 Create tags **before** any resources exist so everything can be tagged from day one.
 
-### 9.1 Tag namespace
+### 8.1 Tag namespace
 
 1. Menu → **Governance & Administration** → **Tag Namespaces**.
 2. Select compartment `Shopsphere` → **Create namespace definition**.
 3. **Name:** `shopsphere`, **Description:** `ShopSphere governance tags` → **Create**.
 
-### 9.2 Tag keys
+### 8.2 Tag keys
 
 Open the `shopsphere` namespace → **Create tag key definition** for each:
 
@@ -346,7 +257,7 @@ Open the `shopsphere` namespace → **Create tag key definition** for each:
 | `owner` | Responsible person or team | Cost-tracking **on** |
 | `cost-center` | Cost allocation code | Cost-tracking **on** |
 
-### 9.3 Tag defaults (optional but recommended)
+### 8.3 Tag defaults (optional but recommended)
 
 1. Open the `Shopsphere` compartment details → **Tag defaults** → **Assign tag defaults**.
 2. Choose `shopsphere.owner` (and `shopsphere.cost-center`) and set a default value, optionally marking it **User-provided** so it is required.
@@ -355,11 +266,11 @@ Open the `shopsphere` namespace → **Create tag key definition** for each:
 
 ---
 
-## 10. Create the Budget and Alerts
+## 9. Create the Budget and Alerts
 
 > A budget **alerts**. It never stops resources.
 
-### 10.1 Budget
+### 9.1 Budget
 
 1. Menu → **Billing & Cost Management** → **Budgets** → **Create budget**.
 2. Enter:
@@ -372,7 +283,7 @@ Open the `shopsphere` namespace → **Create tag key definition** for each:
 
 <img width="1913" height="754" alt="image" src="https://github.com/user-attachments/assets/3ac14dd7-8b75-455a-bc3a-c89521650edd" />
 
-### 10.2 Alert rules
+### 9.2 Alert rules
 
 Create four rules, each with your email as recipient:
 
@@ -385,7 +296,7 @@ Create four rules, each with your email as recipient:
 
 Click **Create**.
 
-### 10.3 Weekly manual routine
+### 9.3 Weekly manual routine
 
 | Habit | When |
 |---|---|
@@ -402,9 +313,9 @@ Click **Create**.
 
 ---
 
-## 11. Security Baseline: Audit, Cloud Guard, Notifications
+## 10. Security Baseline: Audit, Cloud Guard, Notifications
 
-### 11.1 Audit (always on)
+### 10.1 Audit (always on)
 
 1. Menu → **Observability & Management** → **Audit**.
 2. Pick compartment `Shopsphere`, set a recent time range and click **Search**.
@@ -412,21 +323,21 @@ Click **Create**.
 
 Default retention is 365 days.
 
-### 11.2 Cloud Guard
+### 10.2 Cloud Guard
 
 1. Menu → **Identity & Security** → **Cloud Guard** → **Enable Cloud Guard**.
 2. Choose your **home region** as the reporting region.
 3. Accept the policy creation prompt, then set the **root** compartment as the target so it covers `Shopsphere`.
 4. Keep the Oracle-managed detector recipes enabled to start.
 
-### 11.3 Notifications topic
+### 10.3 Notifications topic
 
 1. Menu → **Developer Services** → **Application Integration** → **Notifications** → **Create topic**.
 2. Compartment: `shopsphere-security`; **Name:** `shopsphere-alerts`.
 3. Open the topic → **Create subscription** → protocol **Email** → your address.
 4. Open the confirmation email and click **Confirm subscription**. Without this nothing is delivered.
 
-### 11.4 Later phases
+### 10.4 Later phases
 
 | Capability | Phase |
 |---|---|
@@ -435,7 +346,7 @@ Default retention is 365 days.
 | Bastion service instead of public SSH | Network phase |
 | Logging and VCN flow logs | Observability phase |
 
-### 11.5 Console checks
+### 10.5 Console checks
 
 | # | Check | Done |
 |---|---|---|
@@ -455,7 +366,7 @@ Default retention is 365 days.
 
 ---
 
-## 12. Troubleshooting
+## 11. Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -467,7 +378,7 @@ Default retention is 365 days.
 
 ---
 
-## 13. Pitfalls and Hardening Checklist
+## 12. Pitfalls and Hardening Checklist
 
 ### Pitfalls
 
