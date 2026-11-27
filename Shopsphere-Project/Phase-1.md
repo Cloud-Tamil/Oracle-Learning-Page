@@ -84,7 +84,7 @@ IAM, tags and budgets are **home-region** resources. Make sure the region select
    - **Description:** `ShopSphere E-Commerce Production Learning Project`
    - **Parent compartment:** root (your tenancy)
 4. Click **Create compartment**.
-5. Wait for **Active**, open it, and copy the OCID as `SHOPSPHERE_COMPARTMENT_OCID`.
+5. Wait for **Active**, open it, and copy the OCID as `Shopsphere_ compartment_OCID`.
    
 <img width="1914" height="757" alt="image" src="https://github.com/user-attachments/assets/ea9aecb3-3a19-4c00-a396-70eb59a0eeba" />
 
@@ -195,7 +195,7 @@ Workloads (compute, OKE nodes) should authenticate with **instance principals**,
 2. Enter:
    - **Name:** `shopsphere-app-instances`
    - **Description:** `Compute instances in the app compartment`
-3. Matching rule (replace the OCID with `SHOPSPHERE_APP_COMPARTMENT_OCID`):
+3. Matching rule (replace the OCID with `shopsphere_App_Compartment_OCID`):
 
 ```text
 ALL {instance.compartment.id = 'ocid1.compartment.oc1..xxxx'}
